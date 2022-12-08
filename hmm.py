@@ -1,8 +1,10 @@
 import numpy as np
 from collections import defaultdict
+import pdb
 
 THETA = 0.35
 TEST = True
+pseudocount = 0.01
 
 def main():
   if TEST:
@@ -66,35 +68,129 @@ def main():
   for e in emission_counts:
     emission_prob[e] = emission_counts[e] / state_counts[e[0]]
 
-  print(transition_prob)
-  print(emission_prob)
-
   num_match_states = match_state.sum()
 
-  # construct transition probability matrix
-  # n = 3 + 3 * num_match_states
-  # transition_prob = np.zeros((n, n))
+  test_seq = "ACAFDEAF"
 
-  # def get_idx(state):
-  #   if state == "s": return 0
-  #   if state == "e": return n - 1
-  #   state_type, num = state[0], int(state[1])
-  #   if state_type == "i":
-  #     return 1 + num * 3
-  #   if state_type == "m":
-  #     return num * 3 - 1
-  #   if state_type == "d":
-  #     return num * 3
+  # return log prob
+  def score(query_seq):
+    memo = {}
+    best_prev = {}
+    def score_helper(seq, state):
+      # memo case
+      if (seq, state) in memo: return memo[(seq, state)]
 
-  # for transition in transition_counts:
-  #   before, after = transition
-  #   before_idx, after_idx = get_idx(before), get_idx(after)
+      score_dict = {}
 
-  #   # TODO add pseudocount
-  #   prob = transition_counts[transition] / sequences.shape[0]
-  #   transition_prob[before_idx][after_idx] = prob
+      # end case
+      if state == "e":
+        prev_state = f"m{num_match_states}"
+        score_dict[prev_state] = score_helper(seq, prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+        prev_state = f"i{num_match_states}"
+        score_dict[prev_state] = score_helper(seq, prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+        prev_state = f"d{num_match_states}"
+        score_dict[prev_state] = score_helper(seq, prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
 
-  # print(transition_prob)
+        best_score = -np.inf
+        best_prev_state = None
+        for prev_state in score_dict:
+          if score_dict[prev_state] > best_score:
+            best_score = score_dict[prev_state]
+            best_prev_state = prev_state
+        
+        memo[(seq, state)] = best_score
+        best_prev[(seq, state)] = best_prev_state
+
+        return best_score
+
+      u = int(state[1])
+
+      if state[0] == "m":
+        e_p = np.log(emission_prob[(state, seq[-1])] + pseudocount)
+
+        # start
+        if u == 1 and len(seq) == 1:
+          prev_state = "s"
+          score_dict[prev_state] = e_p + np.log(transition_prob[(prev_state, state)])
+        
+        if len(seq) > 1 and u > 1:
+          # match
+          prev_state = f"m{u - 1}"
+          score_dict[prev_state] = e_p + score_helper(seq[:-1], prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+
+        if len(seq) > 1 and u > 0:
+          # insert
+          prev_state = f"i{u - 1}"
+          score_dict[prev_state] = e_p + score_helper(seq[:-1], prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+
+        if len(seq) > 1:
+          # delete
+          prev_state = f"d{u - 1}"
+          score_dict[prev_state] = e_p + score_helper(seq[:-1], prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+
+      elif state[0] == "i":
+        e_p = np.log(emission_prob[(state, seq[-1])] + pseudocount)
+
+        # start
+        if u == 0 and len(seq) == 1:
+          prev_state = "s"
+          score_dict[prev_state] = e_p + np.log(transition_prob[(prev_state, state)] + pseudocount)
+
+        if len(seq) > 1 and u > 0:
+          # match
+          prev_state = f"m{u}"
+          score_dict[prev_state] = e_p + score_helper(seq[:-1], prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+
+          # insert
+        if len(seq) > 1 and u >= 0:
+          prev_state = f"i{u}"
+          score_dict[prev_state] = e_p + score_helper(seq[:-1], prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+      elif state[0] == "d":
+        # start
+        if u == 1 and len(seq) == 0:
+          prev_state = "s"
+          score_dict[prev_state] = np.log(transition_prob[(prev_state, state)] + pseudocount)
+
+        if seq != "" and u > 1:
+          # match
+          prev_state = f"m{u - 1}"
+          score_dict[prev_state] = score_helper(seq, prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+
+        if u > 1:
+          # delete
+          prev_state = f"d{u - 1}"
+          score_dict[prev_state] = score_helper(seq, prev_state) + np.log(transition_prob[(prev_state, state)] + pseudocount)
+      else:
+        print("bruh error")
+        return
+
+      best_score = -np.inf
+      best_prev_state = None
+      for prev_state in score_dict:
+        if score_dict[prev_state] > best_score:
+          best_score = score_dict[prev_state]
+          best_prev_state = prev_state
+      
+      memo[(seq, state)] = best_score
+      best_prev[(seq, state)] = best_prev_state
+
+      return best_score
+
+    s = score_helper(query_seq, "e")
+    return s, best_prev
+
+  s, best_prev = score(test_seq)
+  print(s)
+
+  curr = "e"
+  seq = test_seq
+
+  while True:
+    print(seq, curr)
+    if (seq, curr) not in best_prev: break
+    curr = best_prev[(seq, curr)]
+    if curr[0] == "m" or curr[0] == "i":
+      seq = seq[:-1]
 
 
 if __name__ == "__main__":
