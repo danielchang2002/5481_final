@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib import rc
 
 def main():
   # load scores
@@ -23,13 +24,16 @@ def main():
     for item in f:
       acdh_pHMM_acdh.append(float(item))
 
+  rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+  rc('text', usetex=True)
 
-  plt.hist(adh_pHMM_adh, label="alcohol dehydrogenase", bins=20)
+
+  plt.hist(adh_pHMM_adh, label="alcohol dehydrogenase", bins=30)
   plt.hist(adh_pHMM_acdh, label="acetaldehyde dehydrogenase", bins=20)
   plt.xlabel("Log Likelihood of alcohol dehydrogenase Profile HMM on holdout genes", fontsize=20)
   plt.ylabel("Count", fontsize=20)
   plt.legend(prop={'size': 24})
-  plt.savefig("../output/figures/ADH_pHMM.png")
+  # plt.savefig("../output/figures/ADH_pHMM.png")
   plt.show()
 
   plt.hist(acdh_pHMM_adh, label="alcohol dehydrogenase", bins=20)
@@ -37,7 +41,7 @@ def main():
   plt.xlabel("Log Likelihood of acetaldehyde dehydrogenase Profile HMM on holdout genes", fontsize=20)
   plt.ylabel("Count", fontsize=20)
   plt.legend(prop={'size' : 24})
-  plt.savefig("../output/figures/ACDH_pHMM.png")
+  # plt.savefig("../output/figures/ACDH_pHMM.png")
   plt.show()
 
 if __name__ == "__main__":
